@@ -10,6 +10,7 @@ const STEPS = ["Participantes", "Organizar grupos", "Asignar cartas", "Equipos f
 let state = loadState();
 let dragId = null;
 let holdTimer = null;
+let selectedPeople = new Set();
 
 function initialState() {
   return { size: 18, step: 1, people: [], groups: Array.from({ length: 6 }, () => []), assignments: {} };
@@ -75,9 +76,13 @@ function participantsView() {
 function groupsView() {
   const assigned = new Set(state.groups.flat());
   const free = state.people.filter(p => !assigned.has(p.id));
-  return `${pageHead(2, "Organiza los grupos", `Forma 6 grupos de ${targetPerGroup()} personas. Arrastra los nombres o mantenlos presionados para elegir un grupo.`)}
+  return `${pageHead(2, "Organiza los grupos", `Forma 6 grupos de ${targetPerGroup()} personas. Toca hasta ${targetPerGroup()} nombres para moverlos juntos.`)}
     <div class="toolbar push"><button class="ghost" data-back="1">← Participantes</button><button class="secondary" id="randomGroups">Distribuir al azar</button></div>
-    <div class="unassigned" data-group="free"><div class="group-title"><strong>Sin asignar</strong><span class="badge">${free.length}</span></div><p class="hint">Arrastra o mantén presionado un nombre.</p><div class="unassigned-list">${free.map(personRow).join("") || '<span class="hint">Todos los participantes están organizados.</span>'}</div></div>
+    <div class="selection-bar ${selectedPeople.size ? "active" : ""}">
+      <div><strong>${selectedPeople.size} de ${targetPerGroup()} seleccionados</strong><small>Toca los nombres que deseas mover juntos.</small></div>
+      <div class="selection-actions"><button class="ghost small" id="clearSelection" ${!selectedPeople.size ? "disabled" : ""}>Limpiar</button><button class="primary small" id="moveSelection" ${!selectedPeople.size ? "disabled" : ""}>Mover selección</button></div>
+    </div>
+    <div class="unassigned" data-group="free"><div class="group-title"><strong>Sin asignar</strong><span class="badge">${free.length}</span></div><p class="hint">Toca para seleccionar, arrastra uno o mantén presionado.</p><div class="unassigned-list">${free.map(personRow).join("") || '<span class="hint">Todos los participantes están organizados.</span>'}</div></div>
     <div class="groups-layout">${state.groups.map((g, i) => groupCard(g, i)).join("")}</div>
     <div class="bottom-actions"><button class="ghost" data-back="1">← Volver</button><button class="primary" id="toCards" ${!allGrouped() ? "disabled" : ""}>Asignar cartas →</button></div>`;
 }
@@ -88,9 +93,10 @@ function personRow(pOrId, options = {}) {
   const p = typeof pOrId === "string" ? person(pOrId) : pOrId;
   const suit = state.assignments[p.id] ? SUITS.find(s => s.id === state.assignments[p.id]) : null;
   const groupIndex = groupOf(p.id);
-  return `<div class="person-row" data-person="${p.id}" draggable="${options.static ? "false" : "true"}">
+  const selectable = state.step === 2 && !options.static;
+  return `<div class="person-row ${selectable && selectedPeople.has(p.id) ? "selected" : ""}" data-person="${p.id}" draggable="${options.static ? "false" : "true"}">
     ${options.rank ? `<span class="rank">${rankLabel(groupIndex)}</span>` : `<span class="avatar">${escapeHtml(p.name.slice(0, 1).toUpperCase())}</span>`}
-    <span class="person-name">${escapeHtml(p.name)}</span>${suit ? `<span class="suit ${suit.color}">${suit.symbol}</span>` : ""}
+    <span class="person-name">${escapeHtml(p.name)}</span>${selectable ? `<span class="select-mark">${selectedPeople.has(p.id) ? "✓" : ""}</span>` : ""}${suit ? `<span class="suit ${suit.color}">${suit.symbol}</span>` : ""}
   </div>`;
 }
 
@@ -127,10 +133,20 @@ function bindGroups() {
   document.querySelector("#randomGroups").onclick = randomGroups;
   document.querySelector("#toCards").onclick = () => { state.step = 3; render(); };
   bindDraggablePeople((id) => openGroupPicker(id));
+  document.querySelector("#moveSelection").onclick = openSelectionGroupPicker;
+  document.querySelector("#clearSelection").onclick = () => { selectedPeople.clear(); render(); };
+  document.querySelectorAll(".person-row").forEach(row => row.onclick = () => {
+    if (row.dataset.holdFired === "true") { row.dataset.holdFired = "false"; return; }
+    togglePersonSelection(row.dataset.person);
+  });
   document.querySelectorAll("[data-group]").forEach(zone => {
     zone.ondragover = e => { e.preventDefault(); zone.classList.add("dragover"); };
     zone.ondragleave = () => zone.classList.remove("dragover");
-    zone.ondrop = e => { e.preventDefault(); zone.classList.remove("dragover"); movePerson(dragId, zone.dataset.group); };
+    zone.ondrop = e => {
+      e.preventDefault(); zone.classList.remove("dragover");
+      if (selectedPeople.has(dragId) && selectedPeople.size > 1) movePeople([...selectedPeople], zone.dataset.group);
+      else movePerson(dragId, zone.dataset.group);
+    };
   });
 }
 function bindCards() {
@@ -147,7 +163,7 @@ function bindDraggablePeople(onHold, draggable = true) {
   document.querySelectorAll(".person-row").forEach(row => {
     row.draggable = draggable;
     row.ondragstart = () => { dragId = row.dataset.person; };
-    const start = () => { clearTimeout(holdTimer); holdTimer = setTimeout(() => onHold(row.dataset.person), 520); };
+    const start = () => { row.dataset.holdFired = "false"; clearTimeout(holdTimer); holdTimer = setTimeout(() => { row.dataset.holdFired = "true"; onHold(row.dataset.person); }, 520); };
     const cancel = () => clearTimeout(holdTimer);
     row.addEventListener("pointerdown", start); row.addEventListener("pointerup", cancel); row.addEventListener("pointerleave", cancel); row.addEventListener("pointercancel", cancel);
     row.oncontextmenu = e => { e.preventDefault(); onHold(row.dataset.person); };
@@ -174,7 +190,27 @@ function fillSamples() {
 function randomGroups() {
   const shuffled = shuffle(state.people.map(p => p.id));
   state.groups = Array.from({ length: 6 }, (_, i) => shuffled.slice(i * targetPerGroup(), (i + 1) * targetPerGroup()));
-  state.assignments = {}; render(); toast("Grupos distribuidos al azar");
+  state.assignments = {}; selectedPeople.clear(); render(); toast("Grupos distribuidos al azar");
+}
+function togglePersonSelection(id) {
+  if (selectedPeople.has(id)) selectedPeople.delete(id);
+  else if (selectedPeople.size < targetPerGroup()) selectedPeople.add(id);
+  else return toast(`Puedes seleccionar como máximo ${targetPerGroup()} personas`);
+  render();
+}
+function movePeople(ids, destination) {
+  if (!ids.length) return;
+  if (destination !== "free") {
+    const to = Number(destination);
+    const remaining = state.groups[to].filter(id => !ids.includes(id));
+    if (remaining.length + ids.length > targetPerGroup()) return toast("No hay suficiente espacio en ese grupo");
+    state.groups = state.groups.map(g => g.filter(id => !ids.includes(id)));
+    state.groups[to] = [...remaining, ...ids];
+  } else {
+    state.groups = state.groups.map(g => g.filter(id => !ids.includes(id)));
+  }
+  ids.forEach(id => delete state.assignments[id]);
+  selectedPeople.clear(); render();
 }
 function movePerson(id, destination) {
   if (!id) return;
@@ -191,6 +227,16 @@ function openGroupPicker(id) {
   const p = person(id); const options = state.groups.map((g, i) => ({ label: `Grupo ${i + 1}`, meta: `${g.length}/${targetPerGroup()}`, disabled: g.length >= targetPerGroup() && !g.includes(id), action: () => movePerson(id, i) }));
   if (groupOf(id) >= 0) options.push({ label: "Quitar del grupo", action: () => movePerson(id, "free") });
   openModal(`Asignar a ${p.name}`, "Elige uno de los grupos disponibles.", options);
+}
+function openSelectionGroupPicker() {
+  const ids = [...selectedPeople];
+  if (!ids.length) return;
+  const options = state.groups.map((g, i) => {
+    const remaining = g.filter(id => !selectedPeople.has(id));
+    return { label: `Grupo ${i + 1}`, meta: `${remaining.length}/${targetPerGroup()} ocupados`, disabled: remaining.length + ids.length > targetPerGroup(), action: () => movePeople(ids, i) };
+  });
+  if (ids.some(id => groupOf(id) >= 0)) options.push({ label: "Dejar sin asignar", action: () => movePeople(ids, "free") });
+  openModal(`Mover ${ids.length} ${ids.length === 1 ? "persona" : "personas"}`, "Elige el grupo al que irán juntas.", options);
 }
 function randomCards() {
   state.groups.forEach(ids => shuffle(activeSuits().map(s => s.id)).forEach((suit, i) => state.assignments[ids[i]] = suit));
