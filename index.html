@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6c4cff" />
+  <title>Sorteo de Grupos</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">♠</span>
+      <span><strong>Sorteo de Grupos</strong><small>Organiza, asigna y juega</small></span>
+    </div>
+    <button class="ghost small" id="resetBtn" type="button">Nueva sesión</button>
+  </header>
+
+  <main class="shell">
+    <aside class="sidebar" aria-label="Progreso">
+      <p class="eyebrow">PREPARACIÓN</p>
+      <nav id="stepsNav"></nav>
+      <div class="tip"><strong>✦ Consejo</strong><p>Todo se guarda automáticamente en este dispositivo.</p></div>
+    </aside>
+
+    <section class="content">
+      <div id="app" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <div id="modalOptions" class="modal-options"></div>
+      <button class="ghost full" id="modalCancel" type="button">Cancelar</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
