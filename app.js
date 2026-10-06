@@ -171,8 +171,31 @@ function bindDraggablePeople(onHold, draggable = true) {
 }
 
 function changeSize(size) {
-  if (state.people.length && !confirm("Cambiar la cantidad reiniciará la sesión. ¿Continuar?")) return;
-  state = initialState(); state.size = size; render();
+  if (state.size === size) return;
+
+  const previousSize = state.size;
+  state.size = size;
+
+  if (previousSize === 24 && size === 18) {
+    const removedIds = new Set(state.people.slice(18).map(p => p.id));
+    state.people = state.people.slice(0, 18);
+
+    const overflowIds = [];
+    state.groups = state.groups.map(group => {
+      const remaining = group.filter(id => !removedIds.has(id));
+      overflowIds.push(...remaining.slice(3));
+      return remaining.slice(0, 3);
+    });
+
+    [...removedIds, ...overflowIds].forEach(id => delete state.assignments[id]);
+    selectedPeople = new Set([...selectedPeople].filter(id => state.people.some(p => p.id === id)));
+    render();
+    toast(removedIds.size ? "Se conservaron los primeros 18 participantes" : "Modo de 18 participantes activado");
+    return;
+  }
+
+  render();
+  toast(state.people.length >= 18 ? "Ahora puedes registrar 6 participantes más" : "Modo de 24 participantes activado");
 }
 function addName() {
   const input = document.querySelector("#nameInput"); const name = input.value.trim();
