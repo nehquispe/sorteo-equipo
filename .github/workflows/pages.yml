@@ -25,6 +25,10 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Preparar versión sin caché
+        run: |
+          sed -i "s/__BUILD_VERSION__/${GITHUB_SHA}/g" index.html
+          printf '{"version":"%s"}\n' "$GITHUB_SHA" > version.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
