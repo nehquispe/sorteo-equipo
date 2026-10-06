@@ -247,17 +247,23 @@ function movePerson(id, destination) {
   delete state.assignments[id]; render();
 }
 function openGroupPicker(id) {
-  const p = person(id); const options = state.groups.map((g, i) => ({ label: `Grupo ${i + 1}`, meta: `${g.length}/${targetPerGroup()}`, disabled: g.length >= targetPerGroup() && !g.includes(id), action: () => movePerson(id, i) }));
+  const p = person(id); const options = state.groups
+    .map((g, i) => ({ group: g, index: i }))
+    .filter(({ group }) => group.length < targetPerGroup())
+    .map(({ group, index }) => ({ label: `Grupo ${index + 1}`, meta: `${group.length}/${targetPerGroup()} ocupados`, status: group.length === 0 ? "empty" : "partial", action: () => movePerson(id, index) }));
   if (groupOf(id) >= 0) options.push({ label: "Quitar del grupo", action: () => movePerson(id, "free") });
   openModal(`Asignar a ${p.name}`, "Elige uno de los grupos disponibles.", options);
 }
 function openSelectionGroupPicker() {
   const ids = [...selectedPeople];
   if (!ids.length) return;
-  const options = state.groups.map((g, i) => {
-    const remaining = g.filter(id => !selectedPeople.has(id));
-    return { label: `Grupo ${i + 1}`, meta: `${remaining.length}/${targetPerGroup()} ocupados`, disabled: remaining.length + ids.length > targetPerGroup(), action: () => movePeople(ids, i) };
-  });
+  const options = state.groups
+    .map((g, i) => ({ group: g, index: i }))
+    .filter(({ group }) => group.length < targetPerGroup())
+    .map(({ group, index }) => {
+      const remaining = group.filter(id => !selectedPeople.has(id));
+      return { label: `Grupo ${index + 1}`, meta: `${group.length}/${targetPerGroup()} ocupados`, status: group.length === 0 ? "empty" : "partial", disabled: remaining.length + ids.length > targetPerGroup(), action: () => movePeople(ids, index) };
+    });
   if (ids.some(id => groupOf(id) >= 0)) options.push({ label: "Dejar sin asignar", action: () => movePeople(ids, "free") });
   openModal(`Mover ${ids.length} ${ids.length === 1 ? "persona" : "personas"}`, "Elige el grupo al que irán juntas.", options);
 }
@@ -276,7 +282,7 @@ function openSuitPicker(id) {
 function openModal(title, text, options) {
   const modal = document.querySelector("#modal");
   document.querySelector("#modalTitle").textContent = title; document.querySelector("#modalText").textContent = text;
-  document.querySelector("#modalOptions").innerHTML = options.map((o, i) => `<button class="option-btn" data-option="${i}" ${o.disabled ? "disabled" : ""}><span>${o.label}</span>${o.meta ? `<small>${o.meta}</small>` : ""}</button>`).join("");
+  document.querySelector("#modalOptions").innerHTML = options.map((o, i) => `<button class="option-btn" data-option="${i}" ${o.disabled ? "disabled" : ""}><span>${o.label}</span>${o.meta ? `<span class="option-meta"><small>${o.meta}</small>${o.status ? `<i class="status-dot ${o.status}" aria-label="${o.status === "empty" ? "Grupo vacío" : "Grupo parcialmente ocupado"}"></i>` : ""}</span>` : ""}</button>`).join("");
   modal.hidden = false;
   document.querySelectorAll("[data-option]").forEach(b => b.onclick = () => { const o = options[Number(b.dataset.option)]; closeModal(); o.action(); });
 }
