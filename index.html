@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#6c4cff" />
+  <meta name="app-version" content="__BUILD_VERSION__" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Sorteo de Grupos</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=__BUILD_VERSION__" />
 </head>
 <body>
   <header class="topbar">
@@ -38,6 +40,24 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script>
+    (async function checkForUpdates() {
+      try {
+        const current = document.querySelector('meta[name="app-version"]').content;
+        const response = await fetch(`version.json?t=${Date.now()}`, { cache: "no-store" });
+        const latest = (await response.json()).version;
+        const reloadKey = `sorteo-update-${latest}`;
+        if (latest && latest !== current && !sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, "1");
+          const url = new URL(window.location.href);
+          url.searchParams.set("v", latest.slice(0, 8));
+          window.location.replace(url.toString());
+        }
+      } catch (_) {
+        // Si no hay conexión, la aplicación sigue funcionando con la versión guardada.
+      }
+    })();
+  </script>
+  <script src="app.js?v=__BUILD_VERSION__"></script>
 </body>
 </html>
