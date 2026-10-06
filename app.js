@@ -274,7 +274,7 @@ function randomCards() {
 function openSuitPicker(id) {
   const gi = groupOf(id); if (gi < 0) return;
   const usedByOthers = new Set(state.groups[gi].filter(x => x !== id).map(x => state.assignments[x]).filter(Boolean));
-  const options = activeSuits().map(s => ({ label: `${s.symbol} ${s.name}`, disabled: usedByOthers.has(s.id), action: () => { state.assignments[id] = s.id; render(); } }));
+  const options = activeSuits().map(s => ({ label: s.name, symbol: s.symbol, tone: s.color, disabled: usedByOthers.has(s.id), action: () => { state.assignments[id] = s.id; render(); } }));
   if (state.assignments[id]) options.push({ label: "Deshacer selección", action: () => { delete state.assignments[id]; render(); } });
   openModal(`${person(id).name} · Carta ${rankLabel(gi)}`, "Selecciona uno de los palos disponibles.", options);
 }
@@ -282,7 +282,7 @@ function openSuitPicker(id) {
 function openModal(title, text, options) {
   const modal = document.querySelector("#modal");
   document.querySelector("#modalTitle").textContent = title; document.querySelector("#modalText").textContent = text;
-  document.querySelector("#modalOptions").innerHTML = options.map((o, i) => `<button class="option-btn" data-option="${i}" ${o.disabled ? "disabled" : ""}><span>${o.label}</span>${o.meta ? `<span class="option-meta"><small>${o.meta}</small>${o.status ? `<i class="status-dot ${o.status}" aria-label="${o.status === "empty" ? "Grupo vacío" : "Grupo parcialmente ocupado"}"></i>` : ""}</span>` : ""}</button>`).join("");
+  document.querySelector("#modalOptions").innerHTML = options.map((o, i) => `<button class="option-btn" data-option="${i}" ${o.disabled ? "disabled" : ""}><span class="option-label">${o.symbol ? `<b class="option-symbol ${o.tone || ""}">${o.symbol}</b>` : ""}<span>${o.label}</span></span>${o.meta ? `<span class="option-meta"><small>${o.meta}</small>${o.status ? `<i class="status-dot ${o.status}" aria-label="${o.status === "empty" ? "Grupo vacío" : "Grupo parcialmente ocupado"}"></i>` : ""}</span>` : ""}</button>`).join("");
   modal.hidden = false;
   document.querySelectorAll("[data-option]").forEach(b => b.onclick = () => { const o = options[Number(b.dataset.option)]; closeModal(); o.action(); });
 }
