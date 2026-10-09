@@ -146,7 +146,8 @@ h1 { margin: 8px 0 6px; font-size: clamp(30px, 4vw, 42px); line-height: 1.1; let
   .bottom-actions button { width: 100%; }
   .toolbar.push { align-items: stretch; }
   .toolbar.push > * { width: 100%; }
-  .segmented { display: grid; grid-template-columns: 1fr 1fr; }
+  .segmented { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .segmented button { padding-inline: 9px; }
   .selection-bar { top: 72px; align-items: stretch; flex-direction: column; }
   .selection-actions { display: grid; grid-template-columns: 1fr 1.5fr; }
   .ghost.small { font-size: 0; width: 38px; padding: 0; }
