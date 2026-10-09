@@ -18,14 +18,17 @@ function initialState() {
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem("sorteo-equipos-v1"));
-    if (saved && [18, 24].includes(saved.size)) return saved;
+    if (saved && [12, 18, 24].includes(saved.size)) return saved;
   } catch (_) {}
   return initialState();
 }
 function save() { localStorage.setItem("sorteo-equipos-v1", JSON.stringify(state)); }
 function uid() { return `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 function targetPerGroup() { return state.size / 6; }
-function activeSuits() { return SUITS.slice(0, targetPerGroup()); }
+function activeSuits() {
+  if (state.size === 12) return [SUITS[0], SUITS[2]];
+  return SUITS.slice(0, targetPerGroup());
+}
 function rankLabel(groupIndex) { return groupIndex === 0 ? "A" : String(groupIndex + 1); }
 function person(id) { return state.people.find(p => p.id === id); }
 function groupOf(id) { return state.groups.findIndex(g => g.includes(id)); }
@@ -60,6 +63,7 @@ function participantsView() {
     <div class="panel">
       <div class="toolbar push">
         <div class="segmented" aria-label="Cantidad de participantes">
+          <button data-size="12" class="${state.size === 12 ? "active" : ""}">12 personas</button>
           <button data-size="18" class="${state.size === 18 ? "active" : ""}">18 personas</button>
           <button data-size="24" class="${state.size === 24 ? "active" : ""}">24 personas</button>
         </div>
@@ -176,26 +180,30 @@ function changeSize(size) {
   const previousSize = state.size;
   state.size = size;
 
-  if (previousSize === 24 && size === 18) {
-    const removedIds = new Set(state.people.slice(18).map(p => p.id));
-    state.people = state.people.slice(0, 18);
+  if (size < previousSize) {
+    const removedIds = new Set(state.people.slice(size).map(p => p.id));
+    state.people = state.people.slice(0, size);
 
     const overflowIds = [];
     state.groups = state.groups.map(group => {
       const remaining = group.filter(id => !removedIds.has(id));
-      overflowIds.push(...remaining.slice(3));
-      return remaining.slice(0, 3);
+      overflowIds.push(...remaining.slice(targetPerGroup()));
+      return remaining.slice(0, targetPerGroup());
     });
 
     [...removedIds, ...overflowIds].forEach(id => delete state.assignments[id]);
+    const allowedSuits = new Set(activeSuits().map(suit => suit.id));
+    state.people.forEach(({ id }) => {
+      if (state.assignments[id] && !allowedSuits.has(state.assignments[id])) delete state.assignments[id];
+    });
     selectedPeople = new Set([...selectedPeople].filter(id => state.people.some(p => p.id === id)));
     render();
-    toast(removedIds.size ? "Se conservaron los primeros 18 participantes" : "Modo de 18 participantes activado");
+    toast(removedIds.size ? `Se conservaron los primeros ${size} participantes` : `Modo de ${size} participantes activado`);
     return;
   }
 
   render();
-  toast(state.people.length >= 18 ? "Ahora puedes registrar 6 participantes más" : "Modo de 24 participantes activado");
+  toast(`Ahora puedes registrar hasta ${size} participantes`);
 }
 function addName() {
   const input = document.querySelector("#nameInput"); const name = input.value.trim();
@@ -207,7 +215,8 @@ function removePerson(id) {
   state.groups = state.groups.map(g => g.filter(x => x !== id)); delete state.assignments[id]; render();
 }
 function fillSamples() {
-  const source = state.size === 18 ? sample18 : [...sample18, "Renzo", "Patricia", "Óscar", "Gabriela", "Raúl", "Natalia"];
+  const sample24 = [...sample18, "Renzo", "Patricia", "Óscar", "Gabriela", "Raúl", "Natalia"];
+  const source = sample24.slice(0, state.size);
   state.people = source.map(name => ({ id: uid(), name })); state.groups = Array.from({ length: 6 }, () => []); state.assignments = {}; render();
 }
 function randomGroups() {
