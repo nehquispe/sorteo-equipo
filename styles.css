@@ -41,6 +41,7 @@ h1 { margin: 8px 0 6px; font-size: clamp(30px, 4vw, 42px); line-height: 1.1; let
 .panel { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 12px 36px #1d23340a; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
 .toolbar.push { justify-content: space-between; }
+.toolbar.compact { margin: 0; }
 .segmented { display: inline-flex; padding: 4px; background: #eff0f4; border-radius: 12px; }
 .segmented button { border: 0; background: transparent; padding: 9px 14px; border-radius: 9px; color: #6e7280; }
 .segmented button.active { background: #fff; color: var(--ink); box-shadow: 0 2px 9px #1112; }
@@ -63,6 +64,8 @@ h1 { margin: 8px 0 6px; font-size: clamp(30px, 4vw, 42px); line-height: 1.1; let
 .person-chip { border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; background: #fff; min-width: 0; }
 .person-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .person-chip button { border: 0; background: transparent; color: #a2a5af; font-size: 18px; padding: 0 2px; }
+.person-chip .chip-actions { display: flex; align-items: center; gap: 8px; overflow: visible; flex: 0 0 auto; }
+.person-chip [data-edit] { color: var(--purple); font-size: 16px; }
 .bottom-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; }
 .groups-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .group-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; min-height: 210px; transition: .15s; }
@@ -123,6 +126,23 @@ h1 { margin: 8px 0 6px; font-size: clamp(30px, 4vw, 42px); line-height: 1.1; let
 .status-dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 3px #00000008; }
 .status-dot.empty { background: #22a06b; }
 .status-dot.partial { background: #e7a624; }
+.icon-btn { width: 34px; height: 34px; border: 0; border-radius: 10px; background: #f2f3f6; color: #6f7380; font-size: 23px; line-height: 1; }
+.ocr-modal { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+.ocr-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.ocr-heading p { margin-bottom: 14px; }
+.ocr-preview-wrap { width: 100%; height: 145px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #f3f4f7; margin-bottom: 14px; }
+.ocr-preview-wrap img { width: 100%; height: 100%; object-fit: contain; }
+.ocr-status { min-height: 90px; display: flex; align-items: center; justify-content: center; gap: 13px; background: #faf9ff; border-radius: 12px; margin-bottom: 14px; }
+.ocr-status > div { display: grid; gap: 4px; }
+.ocr-status small { color: var(--muted); }
+.ocr-spinner { width: 24px; height: 24px; border: 3px solid #ddd8ff; border-top-color: var(--purple); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.field-label { display: block; color: #4f5361; font-weight: 700; font-size: 13px; margin-bottom: 7px; }
+#ocrNames { width: 100%; resize: vertical; min-height: 190px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; line-height: 1.55; outline: none; }
+#ocrNames:focus { border-color: var(--purple); box-shadow: 0 0 0 3px #6c4cff18; }
+.ocr-summary { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.ocr-summary.warning { color: #b47508; }
+.ocr-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; padding-top: 22px; }
@@ -148,6 +168,8 @@ h1 { margin: 8px 0 6px; font-size: clamp(30px, 4vw, 42px); line-height: 1.1; let
   .toolbar.push > * { width: 100%; }
   .segmented { display: grid; grid-template-columns: repeat(3, 1fr); }
   .segmented button { padding-inline: 9px; }
+  .ocr-modal { padding: 18px; }
+  .ocr-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .selection-bar { top: 72px; align-items: stretch; flex-direction: column; }
   .selection-actions { display: grid; grid-template-columns: 1fr 1.5fr; }
   .ghost.small { font-size: 0; width: 38px; padding: 0; }
