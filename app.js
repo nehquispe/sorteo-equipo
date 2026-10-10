@@ -67,12 +67,12 @@ function participantsView() {
           <button data-size="18" class="${state.size === 18 ? "active" : ""}">18 personas</button>
           <button data-size="24" class="${state.size === 24 ? "active" : ""}">24 personas</button>
         </div>
-        <button class="ghost" id="samplesBtn">Usar nombres de prueba</button>
+        <div class="toolbar compact"><button class="ghost" id="ocrBtn">⌁ Importar desde foto</button><button class="ghost" id="samplesBtn">Usar nombres de prueba</button></div>
       </div>
       <form class="name-entry" id="nameForm"><input id="nameInput" maxlength="40" autocomplete="off" placeholder="Escribe un nombre" ${state.people.length >= state.size ? "disabled" : ""}><button class="primary" ${state.people.length >= state.size ? "disabled" : ""}>Agregar</button></form>
       <div class="countline"><span>Participantes registrados</span><strong>${state.people.length} de ${state.size}</strong></div>
       <div class="progress"><i style="width:${state.people.length / state.size * 100}%"></i></div>
-      <div class="names-grid">${state.people.map(p => `<div class="person-chip"><span>${escapeHtml(p.name)}</span><button data-remove="${p.id}" aria-label="Eliminar ${escapeHtml(p.name)}">×</button></div>`).join("")}</div>
+      <div class="names-grid">${state.people.map(p => `<div class="person-chip"><span>${escapeHtml(p.name)}</span><span class="chip-actions"><button data-edit="${p.id}" aria-label="Editar ${escapeHtml(p.name)}">✎</button><button data-remove="${p.id}" aria-label="Eliminar ${escapeHtml(p.name)}">×</button></span></div>`).join("")}</div>
       <div class="bottom-actions"><span></span><button class="primary" id="toGroups" ${state.people.length !== state.size ? "disabled" : ""}>Organizar grupos →</button></div>
     </div>`;
 }
@@ -130,6 +130,8 @@ function bindParticipants() {
   document.querySelectorAll("[data-size]").forEach(b => b.onclick = () => changeSize(Number(b.dataset.size)));
   document.querySelector("#nameForm").onsubmit = e => { e.preventDefault(); addName(); };
   document.querySelectorAll("[data-remove]").forEach(b => b.onclick = () => removePerson(b.dataset.remove));
+  document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editPerson(b.dataset.edit));
+  document.querySelector("#ocrBtn").onclick = startOcrImport;
   document.querySelector("#samplesBtn").onclick = fillSamples;
   document.querySelector("#toGroups").onclick = () => { state.step = 2; render(); };
 }
@@ -213,6 +215,96 @@ function addName() {
 function removePerson(id) {
   state.people = state.people.filter(p => p.id !== id);
   state.groups = state.groups.map(g => g.filter(x => x !== id)); delete state.assignments[id]; render();
+}
+function editPerson(id) {
+  const participant = person(id);
+  if (!participant) return;
+  const updated = prompt("Corrige el nombre del participante:", participant.name);
+  if (updated === null) return;
+  const name = updated.trim();
+  if (!name) return toast("El nombre no puede quedar vacío");
+  participant.name = name.slice(0, 40);
+  render();
+  toast("Nombre actualizado");
+}
+function startOcrImport() {
+  if (state.people.length >= state.size) return toast("La lista ya está completa");
+  document.querySelector("#ocrFileInput").click();
+}
+function closeOcrModal() {
+  document.querySelector("#ocrModal").hidden = true;
+  document.querySelector("#ocrFileInput").value = "";
+}
+function parseOcrNames(text) {
+  const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const numbered = lines.map(line => {
+    const match = line.match(/^\s*(?:[Il|]?\s*)?(\d{1,2})\s*[.):-]?\s+(.+)$/i);
+    if (!match) return null;
+    const number = Number(match[1]);
+    if (number < 1 || number > 24) return null;
+    const name = match[2].replace(/\s+[YE]\s+\d.*$/i, "").replace(/\s+\d+.*$/, "").replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]/g, " ").replace(/\s+/g, " ").trim();
+    return name.length >= 2 ? { number, name } : null;
+  }).filter(Boolean).sort((a, b) => a.number - b.number);
+  if (numbered.length >= 2) return numbered.map(item => `${item.number}. ${titleCaseName(item.name)}`).join("\n");
+  return lines.map(line => line.replace(/^\s*\d{1,2}\s*[.):-]?\s*/, "").trim()).filter(line => line.length >= 2).map(titleCaseName).join("\n");
+}
+function titleCaseName(name) {
+  return name.toLocaleLowerCase("es").replace(/(^|[ '-])([a-záéíóúüñ])/g, (_, start, letter) => start + letter.toLocaleUpperCase("es"));
+}
+function namesFromReview() {
+  return document.querySelector("#ocrNames").value.split(/\n+/).map(line => line.replace(/^\s*\d{1,2}\s*[.):-]?\s*/, "").trim()).filter(Boolean);
+}
+function updateOcrSummary() {
+  const found = namesFromReview().length;
+  const available = state.size - state.people.length;
+  const summary = document.querySelector("#ocrSummary");
+  summary.textContent = `${found} ${found === 1 ? "nombre detectado" : "nombres detectados"} · ${available} espacios disponibles`;
+  summary.classList.toggle("warning", found > available);
+}
+async function processOcrFile(file) {
+  const modal = document.querySelector("#ocrModal");
+  const preview = document.querySelector("#ocrPreview");
+  const status = document.querySelector("#ocrStatus");
+  const review = document.querySelector("#ocrReview");
+  const progress = document.querySelector("#ocrProgress");
+  document.querySelector("#ocrHelp").textContent = "Revisa y corrige los nombres antes de importarlos.";
+  preview.src = URL.createObjectURL(file);
+  document.querySelector("#ocrPreviewWrap").hidden = false;
+  status.hidden = false; review.hidden = true;
+  document.querySelector("#ocrRetry").hidden = true;
+  document.querySelector("#ocrImport").hidden = true;
+  modal.hidden = false;
+  try {
+    if (!window.Tesseract) throw new Error("OCR_UNAVAILABLE");
+    const result = await Tesseract.recognize(file, "spa", { logger: message => {
+      if (message.status === "recognizing text") progress.textContent = `${Math.round((message.progress || 0) * 100)}% completado`;
+      else if (message.status) progress.textContent = message.status === "loading language traineddata" ? "Cargando idioma español" : "Preparando reconocimiento";
+    }});
+    const parsed = parseOcrNames(result.data.text || "");
+    document.querySelector("#ocrNames").value = parsed;
+    status.hidden = true; review.hidden = false;
+    document.querySelector("#ocrRetry").hidden = false;
+    document.querySelector("#ocrImport").hidden = false;
+    updateOcrSummary();
+    if (!parsed) document.querySelector("#ocrHelp").textContent = "No se detectaron nombres claramente. Puedes escribirlos aquí o probar otra foto.";
+  } catch (_) {
+    status.hidden = true; review.hidden = false;
+    document.querySelector("#ocrNames").value = "";
+    document.querySelector("#ocrHelp").textContent = "No se pudo completar el reconocimiento. Comprueba tu conexión o elige otra foto.";
+    document.querySelector("#ocrRetry").hidden = false;
+    updateOcrSummary();
+  } finally {
+    URL.revokeObjectURL(preview.src);
+  }
+}
+function importOcrNames() {
+  const available = state.size - state.people.length;
+  const names = namesFromReview().slice(0, available);
+  if (!names.length) return toast("Revisa o escribe al menos un nombre");
+  names.forEach(name => state.people.push({ id: uid(), name: name.slice(0, 40) }));
+  closeOcrModal();
+  render();
+  toast(`${names.length} ${names.length === 1 ? "nombre agregado" : "nombres agregados"}`);
 }
 function fillSamples() {
   const sample24 = [...sample18, "Renzo", "Patricia", "Óscar", "Gabriela", "Raúl", "Natalia"];
@@ -298,6 +390,12 @@ function openModal(title, text, options) {
 function closeModal() { document.querySelector("#modal").hidden = true; }
 document.querySelector("#modalCancel").onclick = closeModal;
 document.querySelector("#modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
+document.querySelector("#ocrFileInput").onchange = e => { const file = e.target.files?.[0]; if (file) processOcrFile(file); };
+document.querySelector("#ocrClose").onclick = closeOcrModal;
+document.querySelector("#ocrRetry").onclick = () => document.querySelector("#ocrFileInput").click();
+document.querySelector("#ocrImport").onclick = importOcrNames;
+document.querySelector("#ocrNames").oninput = updateOcrSummary;
+document.querySelector("#ocrModal").onclick = e => { if (e.target.id === "ocrModal") closeOcrModal(); };
 document.querySelector("#resetBtn").onclick = () => { if (confirm("¿Deseas borrar la sesión actual y comenzar de nuevo?")) { state = initialState(); render(); } };
 
 function shuffle(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
