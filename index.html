@@ -40,6 +40,30 @@
     </div>
   </div>
 
+  <input id="ocrFileInput" type="file" accept="image/*" capture="environment" hidden />
+  <div class="modal-backdrop" id="ocrModal" hidden>
+    <div class="modal ocr-modal" role="dialog" aria-modal="true" aria-labelledby="ocrTitle">
+      <div class="ocr-heading">
+        <div><h2 id="ocrTitle">Importar desde foto</h2><p id="ocrHelp">Revisa y corrige los nombres antes de importarlos.</p></div>
+        <button class="icon-btn" id="ocrClose" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <div class="ocr-preview-wrap" id="ocrPreviewWrap" hidden><img id="ocrPreview" alt="Foto seleccionada" /></div>
+      <div class="ocr-status" id="ocrStatus" hidden>
+        <span class="ocr-spinner" aria-hidden="true"></span>
+        <div><strong>Reconociendo nombres…</strong><small id="ocrProgress">Preparando imagen</small></div>
+      </div>
+      <div id="ocrReview" hidden>
+        <label class="field-label" for="ocrNames">Un nombre por línea</label>
+        <textarea id="ocrNames" rows="10" spellcheck="false" placeholder="1. Julio&#10;2. Marco&#10;3. Ana"></textarea>
+        <div class="ocr-summary" id="ocrSummary"></div>
+      </div>
+      <div class="ocr-actions">
+        <button class="ghost" id="ocrRetry" type="button" hidden>Elegir otra foto</button>
+        <button class="primary" id="ocrImport" type="button" hidden>Agregar nombres</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (async function checkForUpdates() {
       try {
@@ -58,6 +82,7 @@
       }
     })();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="app.js?v=__BUILD_VERSION__"></script>
 </body>
 </html>
